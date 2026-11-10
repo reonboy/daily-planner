@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="今日やる">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f6f7fb">
+<title>今日やる</title>
+<style>
+:root{
+  --bg:#f6f7fb;--card:#ffffff;--text:#1d2330;--sub:#6b7385;--line:#e3e6ee;
+  --accent:#2f6fed;--accent-soft:#e6eefe;--ok:#1f9d63;--ok-soft:#e3f6ec;
+  --warn:#c26a00;--warn-soft:#fdf1e1;--danger:#d23b3b;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#12141a;--card:#1c1f27;--text:#e8eaf0;--sub:#9aa1b2;--line:#2c303b;
+    --accent:#6c9bff;--accent-soft:#1f2a44;--ok:#4cc38a;--ok-soft:#173327;
+    --warn:#f0a43a;--warn-soft:#3a2c17;--danger:#ff6b6b;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  -webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+.top{position:sticky;top:0;z-index:5;background:var(--bg);
+  padding:calc(10px + env(safe-area-inset-top)) 16px 6px;
+  display:flex;align-items:baseline;justify-content:space-between;max-width:560px;margin:0 auto}
+.top h1{font-size:20px;margin:0}
+#dateLabel{color:var(--sub);font-size:13px}
+main{padding:0 16px;max-width:560px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+.card h2{font-size:15px;margin:0 0 10px}
+.row{display:flex;gap:8px;align-items:center}
+.between{justify-content:space-between}
+.sub{color:var(--sub);font-size:13px}
+.big{font-size:28px;font-weight:800}
+input,select,textarea{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);
+  border-radius:10px;padding:8px 10px;font-size:16px;max-width:100%}
+textarea{width:100%;min-height:80px;resize:vertical}
+button{font:inherit;font-size:15px;border:0;border-radius:10px;padding:10px 14px;
+  background:var(--accent-soft);color:var(--accent);font-weight:700;cursor:pointer;white-space:nowrap}
+button.primary{background:var(--accent);color:#fff}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+button.danger{background:transparent;border:1px solid var(--danger);color:var(--danger)}
+button:disabled{opacity:.4}
+button.small{padding:6px 10px;font-size:13px}
+.tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);
+  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:10}
+.tabs button{flex:1;background:none;color:var(--sub);border-radius:0;padding:14px 0;font-size:14px}
+.tabs button.active{color:var(--accent)}
+.task{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.task.first{border-top:0}
+.task .name{font-weight:700}
+.grow{flex:1;min-width:0}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:var(--warn-soft);
+  color:var(--warn);font-weight:700;margin-left:6px;vertical-align:2px}
+.badge.ok{background:var(--ok-soft);color:var(--ok);margin:0 0 8px}
+.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.bar.done>i{background:var(--ok)}
+.memo{background:var(--accent-soft);border-radius:14px;padding:12px 14px;margin:12px 0}
+.memo .label{font-size:12px;color:var(--accent);font-weight:800}
+.memo .text{font-size:17px;margin-top:6px;white-space:pre-wrap;word-break:break-word}
+.timer{background:var(--accent);color:#fff;border-radius:14px;padding:16px;margin:12px 0}
+.timer.reached{background:var(--ok)}
+.timer .t{font-size:44px;font-weight:800;font-variant-numeric:tabular-nums;margin:4px 0}
+.timer button{background:rgba(255,255,255,.22);color:#fff}
+.timer button.primary{background:#fff;color:#1d2330}
+.grid{display:grid;grid-template-columns:52px repeat(5,1fr);gap:4px}
+.grid .h{font-size:12px;color:var(--sub);text-align:center;padding:4px 0;line-height:1.3}
+.cell{border:1px solid var(--line);background:var(--bg);border-radius:8px;height:42px;padding:0}
+.cell.on{background:var(--accent);border-color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--bg);
+  color:var(--text);font-size:13px}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.toggle{width:52px;height:32px;flex:none;border-radius:99px;background:var(--line);position:relative;padding:0}
+.toggle::after{content:"";position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;
+  background:#fff;transition:left .2s}
+.toggle.on{background:var(--ok)}
+.toggle.on::after{left:24px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;
+  justify-content:center;z-index:20}
+.modal{background:var(--card);width:100%;max-width:560px;border-radius:16px 16px 0 0;
+  padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+.modal h3{margin:0 0 12px;font-size:17px}
+.taskedit{border-top:1px solid var(--line);padding:10px 0}
+.taskedit.first{border-top:0}
+.taskedit input[type=text]{flex:1;min-width:0}
+.taskedit input[type=number]{width:72px}
+.daybar{display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0}
+.daybar .d{width:64px;color:var(--sub);flex:none}
+.daybar .bar{flex:1;margin:0}
+.daybar .m{width:72px;text-align:right;flex:none}
+.logrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.logrow.first{border-top:0}
+details summary{cursor:pointer;margin-top:10px}
+.toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  background:var(--text);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:14px;z-index:30;
+  white-space:nowrap}
+</style>
+</head>
+<body>
+<header class="top"><h1>今日やる</h1><div id="dateLabel"></div></header>
+<main id="view"></main>
+<nav class="tabs">
+  <button data-tab="today">今日</button>
+  <button data-tab="log">記録</button>
+  <button data-tab="settings">設定</button>
+</nav>
+<noscript>JavaScriptを有効にしてください。</noscript>
+<script>
+'use strict';
+
+/* ========== 基本 ========== */
+const KEY = 'kyouyaru.v1';
+const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+const DAY_START = 4 * 60;          // 朝4時までは「前の日」として扱う
+const FOCUS = 15 * 60 * 1000;      // 15分
+const pad = n => String(n).padStart(2, '0');
+const uid = () => Math.random().toString(36).slice(2, 10);
+const view = document.getElementById('view');
+
+function defaults() {
+  return {
+    version: 1,
+    periods: [['09:00','10:30'],['10:40','12:10'],['13:00','14:30'],['14:40','16:10'],['16:20','17:50'],['18:00','19:30']],
+    timetable: { 1: [], 2: [], 3: [], 4: [], 5: [] },   // 曜日(1=月)ごとの時限番号(0始まり)
+    tasks: [
+      { id: uid(), name: 'PortSwigger', min: 30, heavy: true },
+      { id: uid(), name: 'C++', min: 15, heavy: true },
+      { id: uid(), name: 'ゲーム制作', min: 0, heavy: true },
+      { id: uid(), name: 'TOEIC', min: 15, heavy: false }
+    ],
+    logs: [],                      // {id, day, taskId, minutes, at}
+    days: {},                      // 'YYYY-MM-DD': {wake, sleep, slept, classes, lazy}
+    nextStep: { text: '', task: '' },
+    defaultSleep: '01:00',
+    lifeMinutes: 120,              // 食事・風呂など
+    timer: null                    // {taskId, start}
+  };
+}
+
+let S;
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) { S = Object.assign(defaults(), JSON.parse(raw)); return; }
+  } catch (e) {}
+  S = defaults();
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); }
+  catch (e) { toast('保存できませんでした'); }
+}
+
+/* ========== DOMヘルパー(ユーザー入力は必ずテキストノードとして入れる) ========== */
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k.startsWith('on') && typeof v === 'function') e.addEventListener(k.slice(2), v);
+    else if (k === 'class') e.className = v;
+    else if (k === 'style') e.style.cssText = v;
+    else if (typeof v === 'boolean') e[k] = v;
+    else e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) {
+    if (c == null || c === false) continue;
+    e.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return e;
+}
+function toast(msg) {
+  const t = el('div', { class: 'toast' }, msg);
+  document.body.append(t);
+  setTimeout(() => t.remove(), 2200);
+}
+function modal(title, body, actions, opts = {}) {
+  const bg = el('div', { class: 'modal-bg' });
+  const close = () => bg.remove();
+  const acts = el('div', { class: 'row', style: 'margin-top:14px;justify-content:flex-end' });
+  for (const [label, cls, fn] of actions) {
+    acts.append(el('button', { class: cls, onclick: () => { if (fn && fn() === false) return; close(); } }, label));
+  }
+  bg.append(el('div', { class: 'modal' }, el('h3', {}, title), ...body, acts));
+  if (opts.dismissable !== false) bg.addEventListener('click', e => { if (e.target === bg) close(); });
+  document.body.append(bg);
+}
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); toast('コピーしました'); }
+  catch (e) { toast('コピーできませんでした。長押しで選択してください'); }
+}
+
+/* ========== 時間まわり ========== */
+const toMin = s => { if (!s) return null; const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+const fmt = m => { m = ((m % 1440) + 1440) % 1440; return pad(Math.floor(m / 60)) + ':' + pad(m % 60); };
+const norm = m => (m < DAY_START ? m + 1440 : m);
+const ymd = x => `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`;
+function dayKey(d = new Date()) { return ymd(new Date(d.getTime() - DAY_START * 60000)); }
+function keyToDate(k) { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); }
+function label(k) { const d = keyToDate(k); return `${d.getMonth() + 1}/${d.getDate()}(${DOW[d.getDay()]})`; }
+function logicalNow() { const d = new Date(); return norm(d.getHours() * 60 + d.getMinutes()); }
+function nowHM() { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function dur(m) {
+  m = Math.max(0, Math.round(m));
+  const h = Math.floor(m / 60), mm = m % 60;
+  return h ? (mm ? `${h}時間${mm}分` : `${h}時間`) : `${mm}分`;
+}
+function mmss(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+  return (h ? h + ':' + pad(m) : pad(m)) + ':' + pad(ss);
+}
+
+/* ========== データ参照 ========== */
+function today() {
+  const k = dayKey();
+  if (!S.days[k]) S.days[k] = { wake: null, sleep: null, slept: null, classes: null, lazy: false };
+  return S.days[k];
+}
+function baseClasses(k) { return (S.timetable[keyToDate(k).getDay()] || []).slice().sort((a, b) => a - b); }
+function classesOf(k) { const d = S.days[k]; return (d && d.classes ? d.classes : baseClasses(k)).slice().sort((a, b) => a - b); }
+function classIntervals(k) {
+  return classesOf(k).filter(i => S.periods[i]).map(i => [toMin(S.periods[i][0]), toMin(S.periods[i][1])]);
+}
+function taskName(id) { const t = S.tasks.find(t => t.id === id); return t ? t.name : '(削除した項目)'; }
+function minutesIn(keys, taskId) {
+  const set = new Set(keys);
+  return S.logs.filter(l => set.has(l.day) && (taskId == null || l.taskId === taskId)).reduce((a, l) => a + l.minutes, 0);
+}
+function weekKeys(offset = 0) {
+  const base = keyToDate(dayKey());
+  const start = new Date(base);
+  start.setDate(base.getDate() - ((base.getDay() + 6) % 7) + offset * 7);   // 月曜はじまり
+  return [...Array(7)].map((_, i) => { const x = new Date(start); x.setDate(start.getDate() + i); return ymd(x); });
+}
+
+/* ========== 今日の空き時間の計算 ========== */
+function plan() {
+  const k = dayKey(), d = today(), now = logicalNow(), iv = classIntervals(k);
+  const wake = d.wake ? norm(toMin(d.wake)) : null;
+  let sleep = norm(toMin(d.sleep || S.defaultSleep));
+  if (wake != null && sleep <= wake) sleep += 1440;
+  const overlap = (from, to) => iv.reduce((a, [s, e]) => a + Math.max(0, Math.min(e, to) - Math.max(s, from)), 0);
+  const res = { now, wake, sleep, free: null };
+  if (wake != null) res.free = Math.max(0, sleep - wake - overlap(wake, sleep) - S.lifeMinutes);
+  res.inClass = iv.find(([s, e]) => now >= s && now < e) || null;
+  res.next = iv.filter(([s]) => s > now).sort((a, b) => a[0] - b[0])[0] || null;
+  res.gap = res.inClass ? 0 : Math.max(0, (res.next ? res.next[0] : sleep) - now);
+  res.remain = Math.max(0, sleep - now - overlap(now, sleep));
+  return res;
+}
+
+/* ========== タイマー ========== */
+function startTimer(taskId) {
+  S.timer = { taskId, start: Date.now() };
+  save(); render(); window.scrollTo(0, 0);
+}
+function timerCard() {
+  const t = S.timer, ms = Date.now() - t.start, reached = ms >= FOCUS;
+  return el('div', { class: 'timer' + (reached ? ' reached' : ''), id: 'timerCard' },
+    el('div', { class: 'row between' },
+      el('strong', {}, taskName(t.taskId)),
+      el('span', { id: 'timerSub', style: 'font-size:13px;opacity:.9' }, reached ? '15分達成!続けてもOK' : 'まずは15分だけ')),
+    el('div', { class: 't', id: 'timerTime' }, mmss(ms)),
+    el('div', { class: 'row' },
+      el('button', { class: 'primary', onclick: finishTimer }, '終わる'),
+      el('button', { onclick: () => { if (confirm('記録せずにタイマーを止めますか?')) { S.timer = null; save(); render(); } } }, '記録しない')));
+}
+function finishTimer() {
+  const t = S.timer; if (!t) return;
+  const name = taskName(t.taskId);
+  const minutes = Math.max(1, Math.round((Date.now() - t.start) / 60000));
+  const minIn = el('input', { type: 'number', min: '1', inputmode: 'numeric', value: String(minutes), style: 'width:90px' });
+  const memo = el('textarea', { placeholder: '例:DOM XSSのラボ3から', rows: '3' });
+  memo.value = S.nextStep.task === name ? S.nextStep.text : '';
+  modal('おつかれさま!', [
+    el('div', { class: 'row', style: 'margin-bottom:12px' }, el('span', {}, name), minIn, el('span', {}, '分')),
+    el('div', { class: 'sub', style: 'margin-bottom:6px' }, '次の一歩(次はどこから始める?)'),
+    memo
+  ], [
+    ['戻る', 'ghost', null],
+    ['記録する', 'primary', () => {
+      const m = parseInt(minIn.value, 10);
+      if (!(m > 0)) { toast('分数を入れてください'); return false; }
+      S.logs.push({ id: uid(), day: dayKey(new Date(t.start)), taskId: t.taskId, minutes: m, at: Date.now() });
+      const txt = memo.value.trim();
+      if (txt) S.nextStep = { text: txt, task: name };
+      S.timer = null; save(); render();
+      toast(`${dur(m)}を記録しました`);
+    }]
+  ], { dismissable: false });
+}
+
+/* ========== 今日タブ ========== */
+function renderToday() {
+  const k = dayKey(), d = today(), p = plan();
+
+  if (S.timer) view.append(timerCard());
+
+  if (S.nextStep && S.nextStep.text) {
+    view.append(el('div', { class: 'memo' },
+      el('div', { class: 'row between' },
+        el('span', { class: 'label' }, '次の一歩' + (S.nextStep.task ? ` ・ ${S.nextStep.task}` : '')),
+        el('button', { class: 'small ghost', onclick: () => { S.nextStep = { text: '', task: '' }; save(); render(); } }, 'クリア')),
+      el('div', { class: 'text' }, S.nextStep.text)));
+  }
+
+  // 起床・就寝
+  const wakeIn = el('input', { type: 'time', value: d.wake || '', onchange: e => { d.wake = e.target.value || null; save(); render(); } });
+  const sleepIn = el('input', { type: 'time', value: d.sleep || S.defaultSleep, onchange: e => { d.sleep = e.target.value || null; save(); render(); } });
+  view.append(el('div', { class: 'card' },
+    el('div', { class: 'row between' }, el('span', {}, '起きた時刻'),
+      el('div', { class: 'row' }, wakeIn, el('button', { class: 'small', onclick: () => { d.wake = nowHM(); save(); render(); } }, '今起きた'))),
+    el('div', { class: 'row between', style: 'margin-top:8px' }, el('span', {}, '寝る予定'),
+      el('div', { class: 'row' }, sleepIn, el('button', { class: 'small ghost', onclick: () => { d.slept = nowHM(); save(); render(); toast('おやすみなさい'); } }, '今から寝る'))),
+    el('div', { class: 'sub', style: 'margin-top:10px' },
+      p.free != null
+        ? `今日の自由時間 約${dur(p.free)}(授業と、食事・風呂など${dur(S.lifeMinutes)}を除く)`
+        : '起きた時刻を入れると、今日の自由時間を計算します'),
+    d.slept ? el('div', { class: 'sub' }, `寝た時刻:${d.slept}`) : null,
+    el('div', { class: 'switch', style: 'margin-top:12px' },
+      el('div', {}, el('div', {}, 'やる気ない日モード'), el('div', { class: 'sub' }, '軽いものだけ出して、最低ラインはお休み')),
+      el('button', { class: 'toggle' + (d.lazy ? ' on' : ''), 'aria-label': 'やる気ない日モード', onclick: () => { d.lazy = !d.lazy; save(); render(); } }))));
+
+  // 今の状況
+  let status;
+  if (p.inClass) status = `今は授業中(〜${fmt(p.inClass[1])})`;
+  else if (p.next) status = `次の授業まで ${dur(p.gap)}(${fmt(p.next[0])}〜)`;
+  else status = p.now < p.sleep ? `寝るまで ${dur(p.sleep - p.now)}` : '寝る予定の時刻を過ぎています';
+  view.append(el('div', { class: 'card' },
+    el('div', { style: 'font-weight:700' }, status),
+    el('div', { class: 'sub', style: 'margin-top:4px' }, `寝るまでの空き時間(授業を除く) ${dur(p.remain)}`)));
+
+  // 最低ライン
+  const mins = S.tasks.filter(t => t.min > 0);
+  if (mins.length) {
+    const allDone = mins.every(t => minutesIn([k], t.id) >= t.min);
+    const card = el('div', { class: 'card' }, el('h2', {}, d.lazy ? '最低ライン(今日はお休み)' : '今日の最低ライン'));
+    if (allDone) card.append(el('div', { class: 'badge ok' }, '達成!あとは自由'));
+    if (d.lazy) card.append(el('div', { class: 'sub', style: 'margin-bottom:8px' }, '今日は15分を1回やれたら十分です'));
+    for (const t of mins) {
+      const done = minutesIn([k], t.id), pct = Math.min(100, (done / t.min) * 100);
+      card.append(el('div', { style: 'margin:8px 0' },
+        el('div', { class: 'row between' }, el('span', {}, t.name), el('span', { class: 'sub' }, `${done} / ${t.min}分`)),
+        el('div', { class: 'bar' + (done >= t.min ? ' done' : '') }, el('i', { style: `width:${pct}%` }))));
+    }
+    view.append(card);
+  }
+
+  // メニュー
+  let cands = d.lazy ? S.tasks.filter(t => !t.heavy) : S.tasks.slice();
+  if (!cands.length) cands = S.tasks.slice();
+  const unmet = t => (t.min > 0 && minutesIn([k], t.id) < t.min ? 1 : 0);
+  cands.sort((a, b) => (unmet(b) - unmet(a)) || (S.tasks.indexOf(a) - S.tasks.indexOf(b)));
+  const longGap = !p.inClass && p.gap >= 45;
+  const rec = p.inClass ? null : ((longGap ? cands.find(t => t.heavy) : cands.find(t => !t.heavy)) || cands[0]);
+  let hint;
+  if (p.inClass) hint = '授業が終わったら、ここから選んでね';
+  else if (p.gap < 15) hint = '時間が少ないので、軽めのものか休憩でOK';
+  else if (longGap) hint = '時間があるので、集中する作業のチャンス';
+  else hint = '軽めのものがおすすめ';
+  const menu = el('div', { class: 'card' }, el('h2', {}, '今できること'), el('div', { class: 'sub', style: 'margin:-4px 0 6px' }, hint));
+  cands.forEach((t, i) => {
+    const done = minutesIn([k], t.id);
+    menu.append(el('div', { class: 'task' + (i === 0 ? ' first' : '') },
+      el('div', { class: 'grow' },
+        el('div', {}, el('span', { class: 'name' }, t.name), t === rec ? el('span', { class: 'badge' }, 'おすすめ') : null),
+        el('div', { class: 'sub' }, `${t.heavy ? '集中' : '軽め'} ・ 今日 ${dur(done)}` + (t.min > 0 ? ` / 最低${t.min}分` : ''))),
+      el('button', { class: t === rec ? 'primary' : '', disabled: !!S.timer, onclick: () => startTimer(t.id) }, '15分だけ')));
+  });
+  if (!cands.length) menu.append(el('div', { class: 'sub' }, '設定タブでやることを追加してください'));
+  view.append(menu);
+
+  // 今日の授業
+  const base = baseClasses(k), cur = classesOf(k);
+  const chips = el('div', { class: 'chips' });
+  S.periods.forEach(([s], i) => {
+    chips.append(el('button', {
+      class: 'chip' + (cur.includes(i) ? ' on' : ''),
+      onclick: () => { const c = classesOf(k); d.classes = c.includes(i) ? c.filter(x => x !== i) : [...c, i]; save(); render(); }
+    }, `${i + 1}限 ${s}`));
+  });
+  const changed = d.classes && JSON.stringify(cur) !== JSON.stringify(base);
+  view.append(el('div', { class: 'card' },
+    el('h2', {}, '今日の授業'),
+    el('div', { class: 'sub', style: 'margin:-4px 0 8px' }, 'タップで今日だけ変更(休講・補講など)'),
+    chips,
+    changed ? el('button', { class: 'small ghost', style: 'margin-top:10px', onclick: () => { d.classes = null; save(); render(); } }, '時間割どおりに戻す') : null));
+}
+
+/* ========== 記録タブ ========== */
+function weekMarkdown() {
+  const keys = weekKeys(0);
+  const lines = [`## 学習ログ ${keys[0]} 〜 ${keys[6]}`, '', `- 合計: ${dur(minutesIn(keys))}`, '', '### 項目別'];
+  const ids = [...new Set(S.logs.filter(l => keys.includes(l.day)).map(l => l.taskId))];
+  for (const id of ids) lines.push(`- ${taskName(id)}: ${dur(minutesIn(keys, id))}`);
+  lines.push('', '### 日別');
+  for (const k of keys) {
+    const m = minutesIn([k]);
+    if (!m) continue;
+    const parts = [...new Set(S.logs.filter(l => l.day === k).map(l => l.taskId))].map(id => `${taskName(id)} ${dur(minutesIn([k], id))}`);
+    lines.push(`- ${label(k)}: ${dur(m)}(${parts.join('、')})`);
+  }
+  if (S.nextStep.text) lines.push('', '### 次の一歩', `- ${S.nextStep.text}`);
+  return lines.join('\n');
+}
+
+function renderLog() {
+  const keys = weekKeys(0), total = minutesIn(keys), last = minutesIn(weekKeys(-1));
+
+  const week = el('div', { class: 'card' },
+    el('h2', {}, '今週の合計'),
+    el('div', { class: 'big' }, dur(total)),
+    el('div', { class: 'sub' }, `先週 ${dur(last)}`));
+  const perTask = S.tasks.map(t => [t, minutesIn(keys, t.id)]);
+  const maxT = Math.max(1, ...perTask.map(x => x[1]));
+  for (const [t, m] of perTask) {
+    week.append(el('div', { class: 'daybar' }, el('span', { class: 'd' }, t.name),
+      el('div', { class: 'bar' }, el('i', { style: `width:${(m / maxT) * 100}%` })), el('span', { class: 'm' }, dur(m))));
+  }
+  view.append(week);
+
+  const days = el('div', { class: 'card' }, el('h2', {}, '日別(今週)'));
+  const maxD = Math.max(1, ...keys.map(k => minutesIn([k])));
+  for (const k of keys) {
+    const m = minutesIn([k]);
+    days.append(el('div', { class: 'daybar' }, el('span', { class: 'd' }, label(k)),
+      el('div', { class: 'bar' }, el('i', { style: `width:${(m / maxD) * 100}%` })), el('span', { class: 'm' }, dur(m))));
+  }
+  view.append(days);
+
+  if (S.tasks.length) {
+    const sel = el('select', {}, ...S.tasks.map(t => el('option', { value: t.id }, t.name)));
+    const mi = el('input', { type: 'number', min: '1', inputmode: 'numeric', placeholder: '分', style: 'width:80px' });
+    view.append(el('div', { class: 'card' },
+      el('h2', {}, '手動で記録'),
+      el('div', { class: 'sub', style: 'margin:-4px 0 8px' }, 'タイマーを使わずにやった分を今日に追加'),
+      el('div', { class: 'row' }, sel, mi, el('span', {}, '分'),
+        el('button', { class: 'primary', onclick: () => {
+          const m = parseInt(mi.value, 10);
+          if (!(m > 0)) { toast('分数を入れてください'); return; }
+          S.logs.push({ id: uid(), day: dayKey(), taskId: sel.value, minutes: m, at: Date.now() });
+          save(); render(); toast(`${dur(m)}を記録しました`);
+        } }, '追加'))));
+  }
+
+  const recent = S.logs.slice(-15).reverse();
+  if (recent.length) {
+    const card = el('div', { class: 'card' }, el('h2', {}, '最近の記録'));
+    recent.forEach((l, i) => card.append(el('div', { class: 'logrow' + (i === 0 ? ' first' : '') },
+      el('span', { class: 'sub', style: 'width:64px' }, label(l.day)),
+      el('span', { class: 'grow' }, taskName(l.taskId)),
+      el('span', {}, dur(l.minutes)),
+      el('button', { class: 'small ghost', 'aria-label': '削除', onclick: () => {
+        if (confirm('この記録を削除しますか?')) { S.logs = S.logs.filter(x => x.id !== l.id); save(); render(); }
+      } }, '×'))));
+    view.append(card);
+  }
+
+  const sleepKeys = Object.keys(S.days).filter(k => S.days[k].wake || S.days[k].slept).sort().reverse().slice(0, 14);
+  if (sleepKeys.length) {
+    const card = el('div', { class: 'card' }, el('h2', {}, '起床・就寝の記録'));
+    sleepKeys.forEach((k, i) => card.append(el('div', { class: 'logrow' + (i === 0 ? ' first' : '') },
+      el('span', { class: 'sub', style: 'width:64px' }, label(k)),
+      el('span', { class: 'grow' }, `起床 ${S.days[k].wake || '-'}`),
+      el('span', {}, `就寝 ${S.days[k].slept || '-'}`))));
+    view.append(card);
+  }
+
+  view.append(el('div', { class: 'card' },
+    el('h2', {}, 'GitHub用に書き出す'),
+    el('div', { class: 'sub', style: 'margin:-4px 0 8px' }, '今週の記録をMarkdownで出します'),
+    el('button', { onclick: () => {
+      const ta = el('textarea', { rows: '10', readonly: 'readonly' }); ta.value = weekMarkdown();
+      modal('今週の学習ログ', [ta], [['閉じる', 'ghost', null], ['コピー', 'primary', () => { copy(ta.value); }]]);
+    } }, 'Markdownを表示')));
+}
+
+/* ========== 設定タブ ========== */
+function moveTask(i, dir) {
+  const j = i + dir; if (j < 0 || j >= S.tasks.length) return;
+  [S.tasks[i], S.tasks[j]] = [S.tasks[j], S.tasks[i]];
+  save(); render();
+}
+
+function renderSettings() {
+  // 時間割
+  const grid = el('div', { class: 'grid' }, el('div', {}), ...[1, 2, 3, 4, 5].map(w => el('div', { class: 'h' }, DOW[w])));
+  S.periods.forEach(([s, e], i) => {
+    grid.append(el('div', { class: 'h' }, `${i + 1}限`, el('br'), s));
+    for (const w of [1, 2, 3, 4, 5]) {
+      const list = S.timetable[w] || (S.timetable[w] = []);
+      grid.append(el('button', {
+        class: 'cell' + (list.includes(i) ? ' on' : ''), 'aria-label': `${DOW[w]}曜${i + 1}限`,
+        onclick: () => { S.timetable[w] = list.includes(i) ? list.filter(x => x !== i) : [...list, i]; save(); render(); }
+      }));
+    }
+  });
+  const det = el('details', {}, el('summary', { class: 'sub' }, '時限の時間を変更する'));
+  S.periods.forEach((p, i) => det.append(el('div', { class: 'row', style: 'margin:6px 0' },
+    el('span', { style: 'width:36px' }, `${i + 1}限`),
+    el('input', { type: 'time', value: p[0], onchange: e => { p[0] = e.target.value; save(); } }), '〜',
+    el('input', { type: 'time', value: p[1], onchange: e => { p[1] = e.target.value; save(); } }))));
+  view.append(el('div', { class: 'card' },
+    el('h2', {}, '時間割'),
+    el('div', { class: 'sub', style: 'margin:-4px 0 10px' }, '授業があるコマをタップ。学期が変わったらタップし直すだけ'),
+    grid, det));
+
+  // やること
+  const tasks = el('div', { class: 'card' },
+    el('h2', {}, 'やること'),
+    el('div', { class: 'sub', style: 'margin:-4px 0 6px' }, '上にあるほど優先。最低0分なら最低ラインには出ません'));
+  S.tasks.forEach((t, i) => {
+    tasks.append(el('div', { class: 'taskedit' + (i === 0 ? ' first' : '') },
+      el('div', { class: 'row' },
+        el('input', { type: 'text', value: t.name, oninput: e => { t.name = e.target.value; },
+          onchange: () => { if (!t.name.trim()) t.name = '無題'; save(); } }),
+        el('button', { class: 'small ghost', disabled: i === 0, onclick: () => moveTask(i, -1) }, '↑'),
+        el('button', { class: 'small ghost', disabled: i === S.tasks.length - 1, onclick: () => moveTask(i, 1) }, '↓'),
+        el('button', { class: 'small danger', onclick: () => {
+          if (confirm(`「${t.name}」を削除しますか?(記録は残ります)`)) { S.tasks.splice(i, 1); save(); render(); }
+        } }, '削除')),
+      el('div', { class: 'row', style: 'margin-top:8px' },
+        el('span', { class: 'sub' }, '最低'),
+        el('input', { type: 'number', min: '0', inputmode: 'numeric', value: String(t.min),
+          onchange: e => { t.min = Math.max(0, parseInt(e.target.value, 10) || 0); save(); } }),
+        el('span', { class: 'sub' }, '分'),
+        el('label', { class: 'row', style: 'margin-left:auto;gap:6px' },
+          el('input', { type: 'checkbox', checked: !!t.heavy, onchange: e => { t.heavy = e.target.checked; save(); } }),
+          '集中が必要'))));
+  });
+  tasks.append(el('button', { class: 'small', style: 'margin-top:8px',
+    onclick: () => { S.tasks.push({ id: uid(), name: '新しい項目', min: 0, heavy: false }); save(); render(); } }, '+ 追加'));
+  view.append(tasks);
+
+  // その他
+  view.append(el('div', { class: 'card' },
+    el('h2', {}, 'その他'),
+    el('div', { class: 'row between' }, el('span', {}, 'いつもの寝る時刻'),
+      el('input', { type: 'time', value: S.defaultSleep, onchange: e => { S.defaultSleep = e.target.value || '01:00'; save(); } })),
+    el('div', { class: 'row between', style: 'margin-top:8px' }, el('span', {}, '食事・風呂などの時間'),
+      el('div', { class: 'row' },
+        el('input', { type: 'number', min: '0', inputmode: 'numeric', value: String(S.lifeMinutes), style: 'width:80px',
+          onchange: e => { S.lifeMinutes = Math.max(0, parseInt(e.target.value, 10) || 0); save(); } }),
+        el('span', { class: 'sub' }, '分')))));
+
+  // バックアップ
+  view.append(el('div', { class: 'card' },
+    el('h2', {}, 'バックアップ'),
+    el('div', { class: 'sub', style: 'margin:-4px 0 10px' },
+      'データはこの端末のこのアプリの中だけに保存されます。iPhoneでは、ホーム画面のアプリとSafariで開いたページはデータが別です。'),
+    el('div', { class: 'row', style: 'flex-wrap:wrap' },
+      el('button', { class: 'small', onclick: () => {
+        const ta = el('textarea', { rows: '8', readonly: 'readonly' }); ta.value = JSON.stringify(S);
+        modal('書き出し', [el('div', { class: 'sub', style: 'margin-bottom:6px' }, 'コピーしてメモなどに保存しておけます'), ta],
+          [['閉じる', 'ghost', null], ['コピー', 'primary', () => { copy(ta.value); }]]);
+      } }, '書き出し'),
+      el('button', { class: 'small', onclick: () => {
+        const ta = el('textarea', { rows: '8', placeholder: '書き出したデータを貼り付け' });
+        modal('読み込み', [ta], [['やめる', 'ghost', null], ['読み込む', 'primary', () => {
+          try {
+            const obj = JSON.parse(ta.value);
+            if (!obj || !Array.isArray(obj.tasks)) throw new Error();
+            if (!confirm('今のデータを上書きします。よろしいですか?')) return false;
+            S = Object.assign(defaults(), obj); save(); render(); toast('読み込みました');
+          } catch (e) { toast('データの形式が正しくありません'); return false; }
+        }]]);
+      } }, '読み込み'),
+      el('button', { class: 'small danger', onclick: () => {
+        if (confirm('すべてのデータを消して最初からにしますか?')) { S = defaults(); save(); render(); }
+      } }, 'リセット'))));
+}
+
+/* ========== 描画・起動 ========== */
+let tab = 'today';
+function render() {
+  const k = dayKey();
+  document.getElementById('dateLabel').textContent = label(k);
+  view.replaceChildren();
+  ({ today: renderToday, log: renderLog, settings: renderSettings })[tab]();
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+}
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  tab = b.dataset.tab; render(); window.scrollTo(0, 0);
+}));
+
+function busy() {
+  const a = document.activeElement;
+  return document.querySelector('.modal-bg') || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+}
+let lastMinute = new Date().getMinutes();
+setInterval(() => {
+  if (S.timer) {
+    const te = document.getElementById('timerTime');
+    if (te) {
+      const ms = Date.now() - S.timer.start;
+      te.textContent = mmss(ms);
+      const card = document.getElementById('timerCard');
+      if (ms >= FOCUS && card && !card.classList.contains('reached')) {
+        card.classList.add('reached');
+        document.getElementById('timerSub').textContent = '15分達成!続けてもOK';
+        if (navigator.vibrate) navigator.vibrate(200);
+      }
+    }
+  }
+  const m = new Date().getMinutes();
+  if (m !== lastMinute) { lastMinute = m; if (tab === 'today' && !busy()) render(); }
+}, 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !busy()) render(); });
+
+load();
+render();
+</script>
+</body>
+</html>
