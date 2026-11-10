@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="今日やる">
+<meta name="apple-mobile-web-app-title" content="daily-planner">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f6f7fb">
-<title>今日やる</title>
+<title>daily-planner</title>
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" type="image/png" href="icon.png">
 <style>
@@ -33,6 +33,8 @@ body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
   padding:calc(10px + env(safe-area-inset-top)) 16px 6px;
   display:flex;align-items:baseline;justify-content:space-between;max-width:560px;margin:0 auto}
 .top h1{font-size:20px;margin:0}
+.logo{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-weight:700;letter-spacing:-.5px}
+.logo span{color:var(--accent)}
 #dateLabel{color:var(--sub);font-size:13px}
 main{padding:0 16px;max-width:560px;margin:0 auto}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
@@ -106,10 +108,16 @@ details summary{cursor:pointer;margin-top:10px}
 .toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);
   background:var(--text);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:14px;z-index:30;
   white-space:nowrap}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:2px}
+.seg button{background:none;color:var(--sub);padding:5px 12px;font-size:13px;border-radius:8px}
+.seg button.on{background:var(--card);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.18)}
+.ranch{width:100%;display:block;margin-top:10px;touch-action:manipulation;cursor:pointer}
+.legend{display:flex;align-items:center;gap:3px;font-size:11px;color:var(--sub);margin-top:6px;justify-content:flex-end}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
 </style>
 </head>
 <body>
-<header class="top"><h1>今日やる</h1><div id="dateLabel"></div></header>
+<header class="top"><h1 class="logo">daily<span>-</span>planner</h1><div id="dateLabel"></div></header>
 <main id="view"></main>
 <nav class="tabs">
   <button data-tab="today">今日</button>
@@ -398,6 +406,225 @@ function renderToday() {
     changed ? el('button', { class: 'small ghost', style: 'margin-top:10px', onclick: () => { d.classes = null; save(); render(); } }, '時間割どおりに戻す') : null));
 }
 
+/* ========== 牧場(草と牛) ========== */
+// マックスの条件:毎日やる「英語」のタスク。設定画面からは変えられないように、ここに直接書いている
+const DAILY_TASK = /TOEIC|英語|English/i;
+const GRASS = ['#7a5a40', '#9be9a8', '#40c463', '#30a14e', '#216e39'];
+const BLADE = ['', '#6fd384', '#2a9d4c', '#1f7a3a', '#164f27'];
+const ranch = { raf: null };
+
+function lastNDays(n) {
+  const base = keyToDate(dayKey());
+  return [...Array(n)].map((_, i) => { const x = new Date(base); x.setDate(base.getDate() - (n - 1 - i)); return ymd(x); });
+}
+function grassLevel(m) { return m <= 0 ? 0 : m < 30 ? 1 : m < 60 ? 2 : m < 120 ? 3 : 4; }
+
+function ranchState() {
+  const keys = lastNDays(7), total = minutesIn(keys);
+  const eng = S.tasks.find(t => DAILY_TASK.test(t.name)) || null;
+  const dayOK = k => minutesIn([k]) > 0 && (!eng || minutesIn([k], eng.id) > 0);
+  const hist = lastNDays(60).reverse();               // [今日, 昨日, ...]
+  let i = dayOK(hist[0]) ? 0 : 1, streak = 0;           // 今日がまだなら昨日から数える
+  for (; i < hist.length && dayOK(hist[i]); i++) streak++;
+  let state;
+  if (total === 0) state = 'cry';
+  else if (streak >= 7) state = 'sleep';
+  else if (minutesIn([hist[0]]) === 0 && minutesIn([hist[1]]) === 0) state = 'sad';
+  else state = 'normal';
+  return { state, total, streak, eng };
+}
+
+// ドット絵の牛(16x12、右向き)
+function makeCow(kind) {
+  const W = 16, H = 12, g = [...Array(H)].map(() => Array(W).fill(null));
+  const C = { w: '#f4f1ea', k: '#26221f', p: '#f2a7b0', h: '#e6d6a0' };
+  const set = (x, y, c) => { if (x >= 0 && x < W && y >= 0 && y < H) g[y][x] = C[c]; };
+  const rect = (x0, y0, x1, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, c); };
+  const dy = kind === 'sleep' ? 2 : 0;
+  rect(1, 3 + dy, 11, 8 + dy, 'w');
+  [[3,3],[4,3],[3,4],[4,4],[5,4],[9,5],[8,6],[9,6],[8,7],[6,8]].forEach(([x, y]) => set(x, y + dy, 'k'));
+  set(0, 3 + dy, 'w'); set(0, 4 + dy, 'w'); set(0, 5 + dy, 'k');
+  const hy = kind === 'eat' ? 3 : kind === 'sleep' ? 4 : 1;
+  rect(11, hy, 15, hy + 4, 'w');
+  set(11, hy, 'k');
+  set(12, hy - 1, 'h'); set(14, hy - 1, 'h');
+  rect(13, hy + 3, 15, hy + 4, 'p');
+  if (kind === 'sleep') { set(13, hy + 1, 'k'); set(14, hy + 1, 'k'); } else set(13, hy + 1, 'k');
+  if (kind !== 'sleep') {
+    set(6, 9, 'p'); set(7, 9, 'p');
+    for (const x of (kind === 'walkB' ? [3, 5, 8, 10] : [2, 4, 9, 11])) { set(x, 9, 'w'); set(x, 10, 'w'); set(x, 11, 'k'); }
+  }
+  return g;
+}
+const SPRITES = {};
+function sprite(kind) {
+  if (SPRITES[kind]) return SPRITES[kind];
+  const c = document.createElement('canvas'); c.width = 16; c.height = 12;
+  const x = c.getContext('2d');
+  makeCow(kind).forEach((row, y) => row.forEach((col, xx) => { if (col) { x.fillStyle = col; x.fillRect(xx, y, 1, 1); } }));
+  return (SPRITES[kind] = c);
+}
+
+function bubbleText(st) {
+  if (st.state === 'sleep') return 'Zzz…(7日連続達成!)';
+  if (st.state === 'cry') return 'もー…7日なにもないよ';
+  if (st.state === 'sad') return 'もー…おなかすいた';
+  return `もー!直近7日 ${dur(st.total)}`;
+}
+
+function renderRanch() {
+  const mode = S.ranchView === 'month' ? 'month' : 'week';
+  const st = ranchState();
+  const keys = lastNDays(mode === 'week' ? 7 : 30);
+  const label = st.eng ? '英語' : '毎日';
+  const status = {
+    sleep: `満腹でお昼寝中。${label}7日連続達成!`,
+    cry: '泣いている…直近7日なにもしていない',
+    sad: 'しょんぼり…昨日から何もしていない',
+    normal: `もぐもぐ中 ・ 直近7日 ${dur(st.total)} ・ ${label} ${st.streak}日連続`
+  }[st.state];
+  const canvas = el('canvas', { class: 'ranch', 'aria-label': '牧場' });
+  view.append(el('div', { class: 'card' },
+    el('div', { class: 'row between' }, el('h2', { style: 'margin:0' }, '牧場'),
+      el('div', { class: 'seg' }, ...['week', 'month'].map(v => el('button', {
+        class: v === mode ? 'on' : '', onclick: () => { S.ranchView = v; save(); render(); }
+      }, v === 'week' ? '7日' : '30日')))),
+    canvas,
+    el('div', { class: 'legend' }, '少ない', ...GRASS.map(c => el('i', { style: `background:${c}` })), '多い'),
+    el('div', { style: 'margin-top:6px;font-size:14px' }, status),
+    el('div', { class: 'sub', style: 'font-size:12px;margin-top:2px' },
+      st.eng ? `マックス:「${st.eng.name}」を7日連続(1分以上)。牛をタップすると話します` : 'マックス:7日連続で何かやる。牛をタップすると話します')));
+  requestAnimationFrame(() => startRanch(canvas, mode, keys, st));
+}
+
+function startRanch(canvas, mode, keys, st) {
+  const W = canvas.clientWidth; if (!W || !canvas.isConnected) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cols = mode === 'week' ? 7 : 10, rows = mode === 'week' ? 1 : 3, gap = 4;
+  const tw = (W - gap * (cols - 1)) / cols, th = mode === 'week' ? tw * 1.3 : tw;
+  const P = Math.max(2, Math.round(tw / (mode === 'week' ? 11 : 10)));
+  const fat = 1 + Math.min(st.total, 600) / 600 * 0.5;            // 直近7日 10時間で最大
+  const cw = 16 * P * fat, ch = 12 * P * (1 + (fat - 1) * 0.4);
+  const top = Math.max(8, Math.ceil(ch + 34 - th * 0.78)), labelH = mode === 'week' ? 18 : 0;
+  const H = Math.ceil(top + rows * th + gap * (rows - 1) + labelH + 2);
+  canvas.width = W * dpr; canvas.height = H * dpr; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const css = getComputedStyle(document.documentElement);
+  const accent = css.getPropertyValue('--accent').trim() || '#2f6fed';
+  const subC = css.getPropertyValue('--sub').trim() || '#888';
+  const textC = css.getPropertyValue('--text').trim() || '#222';
+  const cardC = css.getPropertyValue('--card').trim() || '#fff';
+
+  const tiles = keys.map((k, i) => {
+    const m = minutesIn([k]);
+    return { k, i, lv: grassLevel(m), x: (i % cols) * (tw + gap), y: top + Math.floor(i / cols) * (th + gap), eaten: 0 };
+  });
+  const center = t => ({ x: Math.min(Math.max(t.x + tw / 2, cw / 2 + 2), W - cw / 2 - 2), y: t.y + th * 0.78 });
+  const home = center(tiles[tiles.length - 1]);
+  const cow = { x: home.x, y: home.y, face: -1, target: null, act: 'idle', until: performance.now() + 700, bubble: null };
+  const speed = st.state === 'sad' ? 13 : 34;
+  const food = tiles.filter(t => t.lv > 0);
+
+  canvas.onclick = e => {
+    const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    if (Math.abs(x - cow.x) < cw / 2 + 12 && y > cow.y - ch - 12 && y < cow.y + 12) {
+      cow.bubble = { text: bubbleText(st), until: performance.now() + 2600 };
+      if (navigator.vibrate) navigator.vibrate(30);
+    }
+  };
+
+  const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+
+  function draw(now) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.imageSmoothingEnabled = false;
+    for (const t of tiles) {
+      let lv = t.lv;
+      if (t.eaten && now - t.eaten < 5000) lv = Math.max(0, lv - 1);
+      ctx.fillStyle = GRASS[lv]; rr(t.x, t.y, tw, th, 6); ctx.fill();
+      if (lv > 0) {
+        ctx.fillStyle = BLADE[lv];
+        for (let j = 0; j < lv * 3; j++) {
+          const bx = t.x + 3 + ((t.i * 37 + j * 53) % 97) / 97 * (tw - 9);
+          const by = t.y + 4 + ((t.i * 71 + j * 29) % 89) / 89 * (th - 12);
+          ctx.fillRect(bx, by, 2, 5); ctx.fillRect(bx + 3, by + 2, 2, 3);
+        }
+      }
+      if (t.i === tiles.length - 1) { ctx.strokeStyle = accent; ctx.lineWidth = 2; rr(t.x + 1, t.y + 1, tw - 2, th - 2, 5); ctx.stroke(); }
+      if (mode === 'week') {
+        ctx.fillStyle = subC; ctx.font = '11px -apple-system,sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(t.i === tiles.length - 1 ? '今日' : DOW[keyToDate(t.k).getDay()], t.x + tw / 2, t.y + th + 14);
+      }
+    }
+
+    let kind = 'walkA';
+    if (st.state === 'sleep') kind = 'sleep';
+    else if (cow.act === 'eat') kind = Math.floor(now / 280) % 2 ? 'eat' : 'walkA';
+    else if (cow.act === 'walk') kind = Math.floor(now / (st.state === 'sad' ? 380 : 200)) % 2 ? 'walkA' : 'walkB';
+    const x = cow.x - cw / 2, y = cow.y - ch;
+    ctx.save();
+    if (cow.face < 0) { ctx.translate(cow.x * 2, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(sprite(kind), x, y, cw, ch);
+    ctx.restore();
+
+    const ex = cow.x + (13.5 / 16 - 0.5) * cw * cow.face, ey = y + (kind === 'sleep' ? 5.5 : 2.5) / 12 * ch;
+    if (st.state === 'cry') {
+      ctx.fillStyle = '#5aa9ff';
+      for (let k = 0; k < 2; k++) {
+        const ph = ((now / 900) + k * 0.5) % 1;
+        ctx.globalAlpha = 1 - ph;
+        ctx.fillRect(ex - P / 2 + cow.face * P * 0.3, ey + P + ph * ch * 0.55, P, P * 1.4);
+      }
+      ctx.globalAlpha = 1;
+    }
+    if (st.state === 'sleep') {
+      ctx.fillStyle = textC; ctx.textAlign = 'center';
+      for (let k = 0; k < 3; k++) {
+        const ph = ((now / 1600) + k / 3) % 1;
+        ctx.globalAlpha = 1 - ph;
+        ctx.font = `bold ${10 + ph * 8}px -apple-system,sans-serif`;
+        ctx.fillText('Z', ex + cow.face * (6 + ph * 14), ey - 8 - ph * 34);
+      }
+      ctx.globalAlpha = 1;
+    }
+    if (st.state === 'sad' && !cow.bubble && (now / 3200) % 1 < 0.45) {
+      ctx.fillStyle = subC; ctx.font = 'bold 14px -apple-system,sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('…', ex, y - 6);
+    }
+    if (cow.bubble && now < cow.bubble.until) {
+      ctx.font = 'bold 12px -apple-system,sans-serif';
+      const tw2 = ctx.measureText(cow.bubble.text).width + 16, bh = 24;
+      const bx = Math.min(Math.max(4, cow.x - tw2 / 2), W - tw2 - 4), by = Math.max(2, y - bh - 8);
+      ctx.fillStyle = cardC; ctx.strokeStyle = subC; ctx.lineWidth = 1;
+      rr(bx, by, tw2, bh, 8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = textC; ctx.textAlign = 'left';
+      ctx.fillText(cow.bubble.text, bx + 8, by + 16);
+    } else if (cow.bubble) cow.bubble = null;
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    if (!canvas.isConnected) { ranch.raf = null; return; }
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (st.state === 'normal' || st.state === 'sad') {
+      if (cow.act === 'idle' && now > cow.until) {
+        const pool = food.length ? food : tiles;
+        cow.target = pool[Math.floor(Math.random() * pool.length)]; cow.act = 'walk';
+      }
+      if (cow.act === 'walk') {
+        const c = center(cow.target), dx = c.x - cow.x, dy = c.y - cow.y, d = Math.hypot(dx, dy);
+        if (d < 1) { cow.act = cow.target.lv > 0 ? 'eat' : 'idle'; cow.until = now + (cow.act === 'eat' ? 2600 : 1200); }
+        else { const s = Math.min(d, speed * dt); cow.x += dx / d * s; cow.y += dy / d * s; if (Math.abs(dx) > 0.5) cow.face = dx > 0 ? 1 : -1; }
+      }
+      if (cow.act === 'eat' && now > cow.until) { cow.target.eaten = now; cow.act = 'idle'; cow.until = now + 900 + Math.random() * 1500; }
+    }
+    draw(now);
+    ranch.raf = requestAnimationFrame(frame);
+  }
+  ranch.raf = requestAnimationFrame(frame);
+}
+
 /* ========== 記録タブ ========== */
 function weekMarkdown() {
   const keys = weekKeys(0);
@@ -416,6 +643,7 @@ function weekMarkdown() {
 }
 
 function renderLog() {
+  renderRanch();
   const keys = weekKeys(0), total = minutesIn(keys), last = minutesIn(weekKeys(-1));
 
   const week = el('div', { class: 'card' },
@@ -586,6 +814,7 @@ let tab = 'today';
 function render() {
   const k = dayKey();
   document.getElementById('dateLabel').textContent = label(k);
+  if (ranch.raf) { cancelAnimationFrame(ranch.raf); ranch.raf = null; }
   view.replaceChildren();
   ({ today: renderToday, log: renderLog, settings: renderSettings })[tab]();
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
@@ -616,6 +845,8 @@ setInterval(() => {
   const m = new Date().getMinutes();
   if (m !== lastMinute) { lastMinute = m; if (tab === 'today' && !busy()) render(); }
 }, 1000);
+let resizeT;
+window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (tab === 'log' && !busy()) render(); }, 250); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && !busy()) render(); });
 
 load();
